@@ -12,28 +12,30 @@ contract DoGClaimTest is Test {
     address public tester;
     address public token;
     uint256 public amount;
-    address  public feeWallet;
+    address public feeWallet;
+    address public admin;
     using MessageHashUtils for bytes32;
 
     function setUp() public {
         tester = vm.addr(1);
         feeWallet = vm.addr(3);
+        admin = vm.addr(5);
 
         MockERC20 mockToken = new MockERC20("MockToken", "MTK");
         token = address(mockToken);
         dogClaim = new DoGClaim();
         amount = 10000000;
 
-        dogClaim.initialize(token, tester, feeWallet);
+        dogClaim.initialize(token, tester, feeWallet, admin);
     }
 
-    function claim(address sender, uint256 mintAmount, string memory ts) public {
+    function claim(address sender, uint256 mintAmount, uint256 ts) public {
         string memory _msg = string.concat(
             Strings.toString(mintAmount),
             ":",
             Strings.toHexString(uint160(sender), 20),
             ":",
-            ts
+            Strings.toString(ts)
         );
 
         bytes32 message = keccak256(abi.encodePacked(_msg)).toEthSignedMessageHash();
@@ -48,18 +50,23 @@ contract DoGClaimTest is Test {
     function testFail_claimNotLoaded() public {
         vm.prank(tester);
 
-        claim(tester, amount, "1709490558000");
+        claim(tester, amount, block.timestamp);
     }
 
     function testFail_claimZero() public {
         vm.prank(tester);
 
-        claim(tester, 0, "1709490558000");
+        claim(tester, 0, block.timestamp);
     }
 
     function testFail_loadInvalidAmount() public {
         vm.prank(tester);
         dogClaim.load(0);
+    }
+
+    function testFail_withdrawEmpty() public {
+        vm.prank(admin);
+        dogClaim.withdraw();
     }
 
     function test_loadAndClaim() public {
@@ -75,7 +82,7 @@ contract DoGClaimTest is Test {
         dogClaim.load(amount);
 
         vm.prank(sender);
-        claim(sender, 1, "1709490558000");
+        claim(sender, 1, block.timestamp);
     }
 
     function testFail_Replay() public {
@@ -91,10 +98,10 @@ contract DoGClaimTest is Test {
         dogClaim.load(amount);
 
         vm.prank(sender);
-        claim(sender, 1, "1709490558000");
+        claim(sender, 1, block.timestamp);
 
         vm.prank(sender);
-        claim(sender, 1, "1709490558000");
+        claim(sender, 1, block.timestamp);
     }
 
     function testFail_InvalidSignature() public {
@@ -115,7 +122,7 @@ contract DoGClaimTest is Test {
             ":",
             Strings.toHexString(uint160(sender), 20),
             ":",
-            "1709490558000"
+            Strings.toString(block.timestamp)
         );
 
         bytes32 message = keccak256(abi.encodePacked(_msg)).toEthSignedMessageHash();
@@ -124,12 +131,14 @@ contract DoGClaimTest is Test {
 
         bytes memory signature = abi.encodePacked(r, s, v);
 
-        dogClaim.claim(1000, "1709490558000", signature);
+        dogClaim.claim(1000, block.timestamp, signature);
     }
 
-    function testFuzzClaim(address sender, uint256 _number, string memory ts) public {
+    function testFuzzClaim(address sender, uint256 _number) public {
         vm.assume(sender != address(0));
         vm.assume(_number > 0);
+
+        uint256 ts = block.timestamp;
 
         vm.prank(sender);
         MockERC20(token).mint(sender, _number);
@@ -146,7 +155,7 @@ contract DoGClaimTest is Test {
             ":",
             Strings.toHexString(uint160(sender), 20),
             ":",
-            ts
+            Strings.toString(ts)
         );
 
         bytes32 message = keccak256(abi.encodePacked(_msg)).toEthSignedMessageHash();
@@ -170,5 +179,21 @@ contract DoGClaimTest is Test {
 
         vm.prank(sender);
         dogClaim.load(_number);
+    }
+
+    function test_withdraw() public {
+        address sender = vm.addr(2);
+
+        vm.prank(sender);
+        MockERC20(token).mint(sender, amount);
+
+        vm.prank(sender);
+        MockERC20(token).approve(address(dogClaim), amount);
+
+        vm.prank(sender);
+        dogClaim.load(amount);
+
+        vm.prank(admin);
+        dogClaim.withdraw();
     }
 }

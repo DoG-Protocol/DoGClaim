@@ -8,7 +8,9 @@ import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/Mes
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 error InsufficientBalance(uint256 requested, uint256 available);
+error InvalidAddress(address addr);
 error InvalidAmount(uint256 amount);
+error InvalidTimestamp(uint256 timestamp);
 error AlreadyClaimed(string claim);
 error InvalidSignature(address signer, bytes32 hash);
 error TransferFailed(address sender, address recipient, uint256 amount);
@@ -17,18 +19,50 @@ contract DoGClaim is AccessControlUpgradeable {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+
     address public signer;
     address public feeWallet;
     address public token;
     mapping(bytes32 key => bool) private _claims;
     uint256 private _balance;
 
-    function initialize(address _token, address _signer, address _feeWallet) external initializer {
+    function initialize(address _token, address _signer, address _feeWallet, address _admin) external initializer {
         AccessControlUpgradeable.__AccessControl_init();
+
+        if (_token == address(0)) {
+            revert InvalidAddress(_token);
+        }
+
+        if (_signer == address(0)) {
+            revert InvalidAddress(_signer);
+        }
+
+        if (_feeWallet == address(0)) {
+            revert InvalidAddress(_feeWallet);
+        }
+
+        if (_admin == address(0)) {
+            revert InvalidAddress(_admin);
+        }
 
         token = _token;
         signer = _signer;
         feeWallet = _feeWallet;
+        _grantRole(ADMIN_ROLE, _admin);
+    }
+
+    function withdraw() public onlyRole(ADMIN_ROLE) {
+        if (_balance <= 0) {
+            revert InsufficientBalance(_balance, 0);
+        }
+        uint256 _oldBalance = _balance;
+        _balance = 0;
+
+        bool success = IERC20(token).transfer(_msgSender(), _oldBalance);
+        if (!success) {
+            revert TransferFailed(address(this), _msgSender(), _oldBalance);
+        }
     }
 
     function load(uint256 amount) public {
@@ -43,7 +77,7 @@ contract DoGClaim is AccessControlUpgradeable {
         _balance += amount;
     }
 
-    function claim(uint256 amount, string memory timestamp, bytes memory signature) public {
+    function claim(uint256 amount, uint256 timestamp, bytes memory signature) public {
         if (amount > _balance) {
             revert InsufficientBalance(amount, _balance);
         }
@@ -51,12 +85,17 @@ contract DoGClaim is AccessControlUpgradeable {
             revert InvalidAmount(amount);
         }
 
+        uint256 providedTimestampInSeconds = timestamp / 1000;
+        if (block.timestamp - providedTimestampInSeconds > 1 hours) {
+            revert InvalidTimestamp(timestamp);
+        }
+
         string memory message = string.concat(
             Strings.toString(amount),
             ":",
             Strings.toHexString(uint160(_msgSender()), 20),
             ":",
-            timestamp
+            Strings.toString(timestamp)
         );
 
         bytes32 messageHash = keccak256(abi.encodePacked(message));
