@@ -1,0 +1,13 @@
+{
+  "scripts": {
+    "lint": "solhint contracts/**/*.sol",
+    "build": "forge build",
+    "test": "forge build && forge test",
+    "coverage": "forge coverage --report summary --report lcov",
+    "full": "bun lint && bun run test && bun coverage"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts-upgradeable": "^5.0.2",
+    "solhint": "^4.1.1"
+  }
+}
