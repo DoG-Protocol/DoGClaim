@@ -25,7 +25,6 @@ contract DoGClaimTest is Test {
         amount = 10000000;
 
         dogClaim.initialize(token, tester, feeWallet);
-        mockToken.mint(tester, amount);
     }
 
     function claim(address sender, uint256 mintAmount, string memory ts) public {
@@ -126,5 +125,50 @@ contract DoGClaimTest is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         dogClaim.claim(1000, "1709490558000", signature);
+    }
+
+    function testFuzzClaim(address sender, uint256 _number, string memory ts) public {
+        vm.assume(sender != address(0));
+        vm.assume(_number > 0);
+
+        vm.prank(sender);
+        MockERC20(token).mint(sender, _number);
+
+        vm.prank(sender);
+        MockERC20(token).approve(address(dogClaim), _number);
+
+        vm.prank(sender);
+        dogClaim.load(_number);
+
+        vm.prank(sender);
+        string memory _msg = string.concat(
+            Strings.toString(_number),
+            ":",
+            Strings.toHexString(uint160(sender), 20),
+            ":",
+            ts
+        );
+
+        bytes32 message = keccak256(abi.encodePacked(_msg)).toEthSignedMessageHash();
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, message);
+
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        dogClaim.claim(_number, ts, signature);
+    }
+
+    function testFuzzLoad(address sender, uint256 _number) public {
+        vm.assume(sender != address(0));
+        vm.assume(_number > 0);
+
+        vm.prank(sender);
+        MockERC20(token).mint(sender, _number);
+
+        vm.prank(sender);
+        MockERC20(token).approve(address(dogClaim), _number);
+
+        vm.prank(sender);
+        dogClaim.load(_number);
     }
 }
