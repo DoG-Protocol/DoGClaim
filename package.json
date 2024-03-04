@@ -4,10 +4,12 @@
     "build": "forge build",
     "test": "forge build && forge test",
     "coverage": "forge coverage --report summary --report lcov",
-    "full": "bun lint && bun run test && bun coverage"
+    "full": "bun lint && bun run test && bun coverage",
+    "publish": "thirdweb publish"
   },
   "dependencies": {
     "@openzeppelin/contracts-upgradeable": "^5.0.2",
-    "solhint": "^4.1.1"
+    "solhint": "^4.1.1",
+    "thirdweb": "^0.13.43"
   }
 }
