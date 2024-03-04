@@ -21,6 +21,7 @@ contract DoGClaim is AccessControlUpgradeable {
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     event ClaimSucceeded(address to, uint256 amount, bytes signature);
+    event BalanceLoaded(address loader, uint256 amount, uint256 balance);
 
     address public signer;
     address public feeWallet;
@@ -76,6 +77,7 @@ contract DoGClaim is AccessControlUpgradeable {
             revert TransferFailed(_msgSender(), address(this), amount);
         }
         _balance += amount;
+        emit BalanceLoaded(_msgSender(), amount, _balance);
     }
 
     function claim(uint256 amount, uint256 timestamp, bytes memory signature) public {
