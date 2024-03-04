@@ -20,6 +20,7 @@ contract DoGClaim is AccessControlUpgradeable {
     using MessageHashUtils for bytes32;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    event ClaimSucceeded(address to, uint256 amount, bytes signature);
 
     address public signer;
     address public feeWallet;
@@ -121,9 +122,13 @@ contract DoGClaim is AccessControlUpgradeable {
             revert TransferFailed(address(this), _msgSender(), withdrawAmount);
         }
 
-        success = IERC20(token).transfer(feeWallet, feeAmount);
-        if (!success) {
-            revert TransferFailed(address(this), feeWallet, feeAmount);
+        if (feeAmount > 0) {
+            success = IERC20(token).transfer(feeWallet, feeAmount);
+            if (!success) {
+                revert TransferFailed(address(this), feeWallet, feeAmount);
+            }
         }
+
+        emit ClaimSucceeded(_msgSender(), amount, signature);
     }
 }
