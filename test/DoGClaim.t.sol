@@ -35,6 +35,8 @@ contract DoGClaimTest is Test {
             ":",
             Strings.toHexString(uint160(sender), 20),
             ":",
+            Strings.toString(block.chainid),
+            ":",
             Strings.toString(ts)
         );
 
@@ -122,6 +124,8 @@ contract DoGClaimTest is Test {
             ":",
             Strings.toHexString(uint160(sender), 20),
             ":",
+            Strings.toString(block.chainid),
+            ":",
             Strings.toString(block.timestamp)
         );
 
@@ -154,6 +158,8 @@ contract DoGClaimTest is Test {
             Strings.toString(_number),
             ":",
             Strings.toHexString(uint160(sender), 20),
+            ":",
+            Strings.toString(block.chainid),
             ":",
             Strings.toString(ts)
         );

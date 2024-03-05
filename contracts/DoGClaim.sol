@@ -98,6 +98,8 @@ contract DoGClaim is AccessControlUpgradeable {
             ":",
             Strings.toHexString(uint160(_msgSender()), 20),
             ":",
+            Strings.toString(block.chainid),
+            ":",
             Strings.toString(timestamp)
         );
 
