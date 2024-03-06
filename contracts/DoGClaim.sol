@@ -20,7 +20,7 @@ contract DoGClaim is AccessControlUpgradeable {
     using MessageHashUtils for bytes32;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    event ClaimSucceeded(address to, uint256 amount, bytes signature);
+    event ClaimSucceeded(address to, uint256 amount, uint256 timestamp);
     event BalanceLoaded(address loader, uint256 amount, uint256 balance);
 
     address public signer;
@@ -135,7 +135,7 @@ contract DoGClaim is AccessControlUpgradeable {
             }
         }
 
-        emit ClaimSucceeded(_msgSender(), amount, signature);
+        emit ClaimSucceeded(_msgSender(), amount, timestamp);
     }
 
     function checkClaim(address user, uint256 amount, uint256 timestamp) public view returns (bool) {
