@@ -55,7 +55,7 @@ contract DoGClaim is AccessControlUpgradeable {
     }
 
     function withdraw() public onlyRole(ADMIN_ROLE) {
-        if (_balance <= 0) {
+        if (_balance == 0) {
             revert InsufficientBalance(_balance, 0);
         }
         uint256 _oldBalance = _balance;
@@ -68,7 +68,7 @@ contract DoGClaim is AccessControlUpgradeable {
     }
 
     function load(uint256 amount) public {
-        if (amount <= 0) {
+        if (amount == 0) {
             revert InvalidAmount(amount);
         }
 
@@ -84,7 +84,7 @@ contract DoGClaim is AccessControlUpgradeable {
         if (amount > _balance) {
             revert InsufficientBalance(amount, _balance);
         }
-        if (amount <= 0) {
+        if (amount == 0) {
             revert InvalidAmount(amount);
         }
 
