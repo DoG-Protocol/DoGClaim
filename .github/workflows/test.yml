@@ -43,7 +43,7 @@ jobs:
 
       - name: Run Forge coverage
         run: |
-          forge coverage
+          forge coverage --report summary --report lcov
         id: coverage
 
       - name: Upload coverage reports to Codecov
