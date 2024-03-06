@@ -9,6 +9,10 @@
   Distribution of Games claim contract
 </p>
 
+[![Tests](https://github.com/DoG-Protocol/DoGClaim/actions/workflows/test.yml/badge.svg)](https://github.com/DoG-Protocol/DoGClaim/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/DoG-Protocol/DoGClaim/branch/main/graph/badge.svg?token=2TJ6R1WL0Z)](https://codecov.io/gh/DoG-Protocol/DoGClaim)
+
+
 ## Overview
 A `DoGClaim` contract to claim an ERC20 compliant token. Each user can claim with a signature generated off-chain by a trusted authority.
 
