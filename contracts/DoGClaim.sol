@@ -135,4 +135,22 @@ contract DoGClaim is AccessControlUpgradeable {
 
         emit ClaimSucceeded(_msgSender(), amount, signature);
     }
+
+    function checkClaim(address user, uint256 amount, uint256 timestamp) public view returns (bool) {
+        string memory message = string.concat(
+            Strings.toString(amount),
+            ":",
+            Strings.toHexString(uint160(user), 20),
+            ":",
+            Strings.toString(block.chainid),
+            ":",
+            Strings.toString(timestamp)
+        );
+        bytes32 messageHash = keccak256(abi.encodePacked(message));
+        return _claims[messageHash];
+    }
+
+    function getBalance() public view returns (uint256) {
+        return _balance;
+    }
 }

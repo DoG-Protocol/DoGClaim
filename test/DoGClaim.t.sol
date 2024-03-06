@@ -202,4 +202,68 @@ contract DoGClaimTest is Test {
         vm.prank(admin);
         dogClaim.withdraw();
     }
+
+    function test_getBalance() public {
+        assertTrue(dogClaim.getBalance() == 0, "Initial balance should be 0");
+
+        address sender = vm.addr(2);
+
+        vm.prank(sender);
+        MockERC20(token).mint(sender, amount);
+
+        vm.prank(sender);
+        MockERC20(token).approve(address(dogClaim), amount);
+
+        vm.prank(sender);
+        dogClaim.load(amount);
+
+        vm.prank(sender);
+        dogClaim.getBalance();
+        assertTrue(dogClaim.getBalance() == amount, "Balance should be equal to amount");
+    }
+
+    function testFuzzClaimAndCheck(address sender, uint256 _number) public {
+        vm.assume(sender != address(0));
+        vm.assume(_number > 0);
+
+        uint256 ts = block.timestamp;
+
+        bool used = dogClaim.checkClaim(sender, _number, ts);
+        assertFalse(used, "Claim should not yet be used");
+
+        vm.prank(sender);
+        MockERC20(token).mint(sender, _number);
+
+        vm.prank(sender);
+        MockERC20(token).approve(address(dogClaim), _number);
+
+        vm.prank(sender);
+        dogClaim.load(_number);
+
+        vm.prank(sender);
+        string memory _msg = string.concat(
+            Strings.toString(_number),
+            ":",
+            Strings.toHexString(uint160(sender), 20),
+            ":",
+            Strings.toString(block.chainid),
+            ":",
+            Strings.toString(ts)
+        );
+
+        bytes32 message = keccak256(abi.encodePacked(_msg)).toEthSignedMessageHash();
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(1, message);
+
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        dogClaim.claim(_number, ts, signature);
+
+        // Incorrect user
+        used = dogClaim.checkClaim(tester, _number, ts);
+        assertFalse(used, "Claim should not be used");
+
+        used = dogClaim.checkClaim(sender, _number, ts);
+        assertTrue(used, "Claim should be used");
+    }
 }
