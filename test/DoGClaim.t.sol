@@ -122,6 +122,11 @@ contract DoGClaimTest is Test {
 
         vm.prank(sender);
         claim(sender, 1);
+
+        // Incorrect user
+        vm.warp(2 hours);
+        bool used = dogClaim.checkClaim(signerWallet, amount, block.timestamp * 1000);
+        assertFalse(used, "Claim should not be used");
     }
 
     function test_FailReplay() public {
@@ -352,10 +357,6 @@ contract DoGClaimTest is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
 
         dogClaim.claim(_number, ts, signature);
-
-        // Incorrect user
-        used = dogClaim.checkClaim(signerWallet, _number, ts);
-        assertFalse(used, "Claim should not be used");
 
         used = dogClaim.checkClaim(sender, _number, ts);
         assertTrue(used, "Claim should be used");
