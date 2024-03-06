@@ -51,6 +51,8 @@ contract DoGClaimTest is Test {
             ":",
             Strings.toString(block.chainid),
             ":",
+            Strings.toHexString(uint160(address(dogClaim)), 20),
+            ":",
             Strings.toString(ts)
         );
 
@@ -171,6 +173,8 @@ contract DoGClaimTest is Test {
             ":",
             Strings.toString(block.chainid),
             ":",
+            Strings.toHexString(uint160(address(dogClaim)), 20),
+            ":",
             Strings.toString(block.timestamp * 1000)
         );
 
@@ -207,6 +211,8 @@ contract DoGClaimTest is Test {
             ":",
             Strings.toString(block.chainid),
             ":",
+            Strings.toHexString(uint160(address(dogClaim)), 20),
+            ":",
             Strings.toString(ts)
         );
 
@@ -242,6 +248,8 @@ contract DoGClaimTest is Test {
             Strings.toHexString(uint160(sender), 20),
             ":",
             Strings.toString(block.chainid),
+            ":",
+            Strings.toHexString(uint160(address(dogClaim)), 20),
             ":",
             Strings.toString(ts)
         );
@@ -346,6 +354,8 @@ contract DoGClaimTest is Test {
             Strings.toHexString(uint160(sender), 20),
             ":",
             Strings.toString(block.chainid),
+            ":",
+            Strings.toHexString(uint160(address(dogClaim)), 20),
             ":",
             Strings.toString(ts)
         );
