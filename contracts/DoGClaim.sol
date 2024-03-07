@@ -11,8 +11,8 @@ error InsufficientBalance(uint256 requested, uint256 available);
 error InvalidAddress(address addr);
 error InvalidAmount(uint256 amount);
 error InvalidTimestamp(uint256 timestamp);
-error AlreadyClaimed(string claim);
-error InvalidSignature(address signer, bytes32 hash);
+error AlreadyClaimed(uint256 amount, uint256 timestamp);
+error InvalidSignature(address signer, uint256 amount, uint256 timestamp);
 error TransferFailed(address sender, address recipient, uint256 amount);
 
 contract DoGClaim is AccessControlUpgradeable {
@@ -27,7 +27,9 @@ contract DoGClaim is AccessControlUpgradeable {
     address public feeWallet;
     address public token;
     mapping(bytes32 key => bool) private _claims;
+    mapping(address user => uint256) private _nonces;
     uint256 private _balance;
+    uint256 private feeRate;
 
     function initialize(address _token, address _signer, address _feeWallet, address _admin) external initializer {
         AccessControlUpgradeable.__AccessControl_init();
@@ -52,6 +54,8 @@ contract DoGClaim is AccessControlUpgradeable {
         signer = _signer;
         feeWallet = _feeWallet;
         _grantRole(ADMIN_ROLE, _admin);
+
+        feeRate = 20;
     }
 
     function withdraw() public onlyRole(ADMIN_ROLE) {
@@ -67,7 +71,7 @@ contract DoGClaim is AccessControlUpgradeable {
         }
     }
 
-    function load(uint256 amount) public {
+    function load(uint256 amount) public onlyRole(ADMIN_ROLE) {
         if (amount == 0) {
             revert InvalidAmount(amount);
         }
@@ -80,6 +84,37 @@ contract DoGClaim is AccessControlUpgradeable {
         emit BalanceLoaded(_msgSender(), amount, _balance);
     }
 
+    function updateFeeWallet(address newFeeWallet) public onlyRole(ADMIN_ROLE) {
+        if (newFeeWallet == address(0)) {
+            revert InvalidAddress(newFeeWallet);
+        }
+        feeWallet = newFeeWallet;
+    }
+
+    function updateFeeRate(uint256 newFeeRate) public onlyRole(ADMIN_ROLE) {
+        if (newFeeRate > 100) {
+            revert InvalidAmount(newFeeRate);
+        }
+        feeRate = newFeeRate;
+    }
+
+    function getClaimHash(address user, uint256 amount, uint256 timestamp, uint256 nonce) private view returns (bytes32) {
+        string memory message = string.concat(
+            Strings.toString(nonce),
+            ":",
+            Strings.toString(amount),
+            ":",
+            Strings.toHexString(uint160(user), 20),
+            ":",
+            Strings.toString(block.chainid),
+            ":",
+            Strings.toHexString(uint160(address(this)), 20),
+            ":",
+            Strings.toString(timestamp)
+        );
+        return keccak256(abi.encodePacked(message));
+    }
+
     function claim(uint256 amount, uint256 timestamp, bytes memory signature) public {
         if (amount > _balance) {
             revert InsufficientBalance(amount, _balance);
@@ -89,38 +124,28 @@ contract DoGClaim is AccessControlUpgradeable {
         }
 
         uint256 providedTimestampInSeconds = timestamp / 1000;
-        if (block.timestamp - providedTimestampInSeconds > 1 hours) {
+        if (block.timestamp - providedTimestampInSeconds > 15 minutes) {
             revert InvalidTimestamp(timestamp);
         }
 
-        string memory message = string.concat(
-            Strings.toString(amount),
-            ":",
-            Strings.toHexString(uint160(_msgSender()), 20),
-            ":",
-            Strings.toString(block.chainid),
-            ":",
-            Strings.toHexString(uint160(address(this)), 20),
-            ":",
-            Strings.toString(timestamp)
-        );
-
-        bytes32 messageHash = keccak256(abi.encodePacked(message));
+        uint256 nonce = _nonces[_msgSender()];
+        bytes32 messageHash = getClaimHash(_msgSender(), amount, timestamp, nonce);
 
         if (_claims[messageHash]) {
-            revert AlreadyClaimed(message);
+            revert AlreadyClaimed(amount, timestamp);
         }
 
         bytes32 signedMessageHash = messageHash.toEthSignedMessageHash();
 
         if (signedMessageHash.recover(signature) != signer) {
-            revert InvalidSignature(signer, signedMessageHash);
+            revert InvalidSignature(signer, amount, timestamp);
         }
 
         _claims[messageHash] = true;
         _balance -= amount;
+        _nonces[_msgSender()] += 1;
 
-        uint256 feeAmount = amount / 5;
+        uint256 feeAmount = amount * feeRate / 100;
         uint256 withdrawAmount = amount - feeAmount;
 
         bool success = IERC20(token).transfer(_msgSender(), withdrawAmount);
@@ -138,23 +163,21 @@ contract DoGClaim is AccessControlUpgradeable {
         emit ClaimSucceeded(_msgSender(), amount, timestamp);
     }
 
-    function checkClaim(address user, uint256 amount, uint256 timestamp) public view returns (bool) {
-        string memory message = string.concat(
-            Strings.toString(amount),
-            ":",
-            Strings.toHexString(uint160(user), 20),
-            ":",
-            Strings.toString(block.chainid),
-            ":",
-            Strings.toHexString(uint160(address(this)), 20),
-            ":",
-            Strings.toString(timestamp)
-        );
-        bytes32 messageHash = keccak256(abi.encodePacked(message));
+    function checkClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) public view returns (bool) {
+        bytes32 messageHash = getClaimHash(user, amount, timestamp, nonce);
         return _claims[messageHash];
+    }
+
+    function invalidateClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) public onlyRole(ADMIN_ROLE) {
+        bytes32 messageHash = getClaimHash(user, amount, timestamp, nonce);
+        _claims[messageHash] = true;
     }
 
     function getBalance() public view returns (uint256) {
         return _balance;
+    }
+
+    function getNonce(address user) public view returns (uint256) {
+        return _nonces[user];
     }
 }

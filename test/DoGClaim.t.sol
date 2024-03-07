@@ -15,6 +15,7 @@ contract DoGClaimTest is Test {
     address public feeWallet;
     address public admin;
     using MessageHashUtils for bytes32;
+    uint256 MAX_INT = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
 
     function setUp() public {
         signerWallet = vm.addr(1);
@@ -41,10 +42,13 @@ contract DoGClaimTest is Test {
         dogClaim.initialize(token, signerWallet, feeWallet, admin);
     }
 
-    function claim(address sender, uint256 mintAmount) public {
+    function claim(address sender, uint256 mintAmount, uint256 nonce) public {
         vm.warp(2 hours);
         uint256 ts = block.timestamp * 1000;
+
         string memory _msg = string.concat(
+            Strings.toString(nonce),
+            ":",
             Strings.toString(mintAmount),
             ":",
             Strings.toHexString(uint160(sender), 20),
@@ -66,17 +70,21 @@ contract DoGClaimTest is Test {
     }
 
     function test_FailClaimNotLoaded() public {
+        uint256 nonce = dogClaim.getNonce(signerWallet);
+
         vm.prank(signerWallet);
         vm.expectRevert();
 
-        claim(signerWallet, amount);
+        claim(signerWallet, amount, nonce);
     }
 
     function test_FailClaimZero() public {
+        uint256 nonce = dogClaim.getNonce(signerWallet);
+
         vm.prank(signerWallet);
         vm.expectRevert();
 
-        claim(signerWallet, 0);
+        claim(signerWallet, 0, nonce);
     }
 
     function test_FailLoadInvalidAmount() public {
@@ -95,78 +103,90 @@ contract DoGClaimTest is Test {
 
     function test_FailLoadTooMuch() public {
         address sender = vm.addr(2);
+        uint256 nonce = dogClaim.getNonce(sender);
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, amount);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(amount);
 
         vm.prank(sender);
         vm.expectRevert();
-        claim(sender, amount + 1);
+        claim(sender, amount + 1, nonce);
     }
 
     function test_loadAndClaim() public {
         address sender = vm.addr(2);
+        uint256 nonce = dogClaim.getNonce(sender);
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, amount);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(amount);
 
         vm.prank(sender);
-        claim(sender, 1);
+        claim(sender, 1, nonce);
 
+        bool used = dogClaim.checkClaim(sender, 1, block.timestamp * 1000, nonce);
+        assertTrue(used, "Claim should be used");
+
+        nonce = dogClaim.getNonce(signerWallet);
         // Incorrect user
         vm.warp(2 hours);
-        bool used = dogClaim.checkClaim(signerWallet, amount, block.timestamp * 1000);
+        used = dogClaim.checkClaim(signerWallet, amount, block.timestamp * 1000, nonce);
         assertFalse(used, "Claim should not be used");
     }
 
     function test_FailReplay() public {
         address sender = vm.addr(2);
+        uint256 nonce = dogClaim.getNonce(sender);
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, amount);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(amount);
 
         vm.prank(sender);
-        claim(sender, 1);
+        claim(sender, 1, nonce);
 
         vm.prank(sender);
         vm.expectRevert();
-        claim(sender, 1);
+        claim(sender, 1, nonce);
     }
 
     function test_FailInvalidSignature() public {
         address sender = vm.addr(2);
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, amount);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(amount);
+
+
+        uint256 nonce = dogClaim.getNonce(sender);
 
         vm.warp(2 hours);
 
         vm.prank(sender);
         string memory _msg = string.concat(
+            Strings.toString(nonce),
+            ":",
             Strings.toString(1),
             ":",
             Strings.toHexString(uint160(sender), 20),
@@ -191,20 +211,25 @@ contract DoGClaimTest is Test {
     function test_FailInvalidTimestamp() public {
         address sender = vm.addr(2);
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, amount);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(amount);
 
         vm.warp(2 hours);
         uint256 ts = (block.timestamp - (1 hours + 1)) * 1000;
 
         vm.prank(sender);
+        uint256 nonce = dogClaim.getNonce(sender);
+
+        vm.prank(sender);
         string memory _msg = string.concat(
+            Strings.toString(nonce),
+            ":",
             Strings.toString(amount),
             ":",
             Strings.toHexString(uint160(sender), 20),
@@ -229,20 +254,27 @@ contract DoGClaimTest is Test {
     function testFuzzClaim(address sender, uint256 _number) public {
         vm.assume(sender != address(0));
         vm.assume(_number > 0);
+        vm.assume(_number < MAX_INT / 20);
 
-        uint256 ts = block.timestamp;
+        vm.warp(2 hours);
+        uint256 ts = block.timestamp * 1000;
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, _number);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, _number);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), _number);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(_number);
 
         vm.prank(sender);
+        uint256 nonce = dogClaim.getNonce(sender);
+
+        vm.prank(sender);
         string memory _msg = string.concat(
+            Strings.toString(nonce),
+            ":",
             Strings.toString(_number),
             ":",
             Strings.toHexString(uint160(sender), 20),
@@ -274,19 +306,18 @@ contract DoGClaimTest is Test {
         MockERC20(token).approve(address(dogClaim), _number);
 
         vm.prank(sender);
+        vm.expectRevert();
         dogClaim.load(_number);
     }
 
     function test_withdraw() public {
-        address sender = vm.addr(2);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, amount);
-
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(amount);
 
         vm.prank(admin);
@@ -296,13 +327,13 @@ contract DoGClaimTest is Test {
     function test_FailWithdrawPermissions() public {
         address sender = vm.addr(2);
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, amount);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(amount);
 
         vm.prank(sender);
@@ -315,13 +346,13 @@ contract DoGClaimTest is Test {
 
         address sender = vm.addr(2);
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, amount);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), amount);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(amount);
 
         vm.prank(sender);
@@ -332,23 +363,29 @@ contract DoGClaimTest is Test {
     function testFuzzClaimAndCheck(address sender, uint256 _number) public {
         vm.assume(sender != address(0));
         vm.assume(_number > 0);
+        vm.assume(_number < MAX_INT / 20);
 
-        uint256 ts = block.timestamp;
+        vm.warp(2 hours);
+        uint256 ts = block.timestamp * 1000;
 
-        bool used = dogClaim.checkClaim(sender, _number, ts);
+        uint256 nonce = dogClaim.getNonce(sender);
+
+        bool used = dogClaim.checkClaim(sender, _number, ts, nonce);
         assertFalse(used, "Claim should not yet be used");
 
-        vm.prank(sender);
-        MockERC20(token).mint(sender, _number);
+        vm.prank(admin);
+        MockERC20(token).mint(admin, _number);
 
-        vm.prank(sender);
+        vm.prank(admin);
         MockERC20(token).approve(address(dogClaim), _number);
 
-        vm.prank(sender);
+        vm.prank(admin);
         dogClaim.load(_number);
 
         vm.prank(sender);
         string memory _msg = string.concat(
+            Strings.toString(nonce),
+            ":",
             Strings.toString(_number),
             ":",
             Strings.toHexString(uint160(sender), 20),
@@ -368,7 +405,64 @@ contract DoGClaimTest is Test {
 
         dogClaim.claim(_number, ts, signature);
 
-        used = dogClaim.checkClaim(sender, _number, ts);
+        used = dogClaim.checkClaim(sender, _number, ts, nonce);
         assertTrue(used, "Claim should be used");
+    }
+
+    function test_updateFeeWallet() public {
+        address sender = vm.addr(2);
+
+        vm.prank(sender);
+        vm.expectRevert();
+        dogClaim.updateFeeWallet(sender);
+
+        vm.prank(admin);
+        vm.expectRevert();
+        dogClaim.updateFeeWallet(address(0));
+
+        vm.prank(admin);
+        dogClaim.updateFeeWallet(sender);
+    }
+
+    function test_updateFeeRate() public {
+        address sender = vm.addr(2);
+
+        vm.prank(sender);
+        vm.expectRevert();
+        dogClaim.updateFeeRate(50);
+
+        vm.prank(admin);
+        vm.expectRevert();
+        dogClaim.updateFeeRate(200);
+
+        vm.prank(admin);
+        dogClaim.updateFeeRate(5);
+    }
+
+    function test_invalidateClaim() public {
+        address sender = vm.addr(2);
+
+        vm.prank(admin);
+        MockERC20(token).mint(admin, amount);
+
+        vm.prank(admin);
+        MockERC20(token).approve(address(dogClaim), amount);
+
+        vm.prank(admin);
+        dogClaim.load(amount);
+
+        uint256 nonce = dogClaim.getNonce(sender);
+
+        vm.prank(sender);
+        vm.warp(2 hours);
+        vm.expectRevert();
+        dogClaim.invalidateClaim(sender, amount, block.timestamp * 1000, nonce);
+
+        vm.prank(admin);
+        dogClaim.invalidateClaim(sender, amount, block.timestamp * 1000, nonce);
+
+        vm.prank(sender);
+        vm.expectRevert();
+        claim(sender, amount, nonce);
     }
 }
