@@ -424,6 +424,21 @@ contract DoGClaimTest is Test {
         dogClaim.updateFeeWallet(sender);
     }
 
+    function test_updateSignerWallet() public {
+        address sender = vm.addr(2);
+
+        vm.prank(sender);
+        vm.expectRevert();
+        dogClaim.updateSignerWallet(sender);
+
+        vm.prank(admin);
+        vm.expectRevert();
+        dogClaim.updateSignerWallet(address(0));
+
+        vm.prank(admin);
+        dogClaim.updateSignerWallet(sender);
+    }
+
     function test_updateFeeRate() public {
         address sender = vm.addr(2);
 

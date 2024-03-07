@@ -84,6 +84,13 @@ contract DoGClaim is AccessControlUpgradeable {
         emit BalanceLoaded(_msgSender(), amount, _balance);
     }
 
+    function updateSignerWallet(address newSignerWallet) public onlyRole(ADMIN_ROLE) {
+        if (newSignerWallet == address(0)) {
+            revert InvalidAddress(newSignerWallet);
+        }
+        signer = newSignerWallet;
+    }
+
     function updateFeeWallet(address newFeeWallet) public onlyRole(ADMIN_ROLE) {
         if (newFeeWallet == address(0)) {
             revert InvalidAddress(newFeeWallet);
