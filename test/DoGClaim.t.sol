@@ -88,7 +88,7 @@ contract DoGClaimTest is Test {
     }
 
     function test_FailLoadInvalidAmount() public {
-        vm.prank(signerWallet);
+        vm.prank(admin);
         vm.expectRevert();
 
         dogClaim.load(0);
