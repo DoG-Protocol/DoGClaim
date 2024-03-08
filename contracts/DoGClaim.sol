@@ -61,6 +61,9 @@ contract DoGClaim is AccessControlUpgradeable {
         }
         _feeRate = _fee;
 
+        if (_expiryTime == 0) {
+            revert InvalidAmount(_expiryTime);
+        }
         _expiry = _expiryTime;
     }
 
@@ -109,6 +112,13 @@ contract DoGClaim is AccessControlUpgradeable {
             revert InvalidAmount(newFeeRate);
         }
         _feeRate = newFeeRate;
+    }
+
+    function updateExpiry(uint256 newExpiry) public onlyRole(ADMIN_ROLE) {
+        if (newExpiry == 0) {
+            revert InvalidAmount(newExpiry);
+        }
+        _expiry = newExpiry;
     }
 
     function getClaimHash(address user, uint256 amount, uint256 timestamp, uint256 nonce) private view returns (bytes32) {

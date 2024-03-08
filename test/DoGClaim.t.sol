@@ -42,6 +42,9 @@ contract DoGClaimTest is Test {
         vm.expectRevert();
         dogClaim.initialize(token, signerWallet, feeWallet, admin, 101, 15);
 
+        vm.expectRevert();
+        dogClaim.initialize(token, signerWallet, feeWallet, admin, 20, 0);
+
         dogClaim.initialize(token, signerWallet, feeWallet, admin, 20, 15);
     }
 
@@ -455,6 +458,21 @@ contract DoGClaimTest is Test {
 
         vm.prank(admin);
         dogClaim.updateFeeRate(5);
+    }
+
+    function test_updateExpiry() public {
+        address sender = vm.addr(2);
+
+        vm.prank(sender);
+        vm.expectRevert();
+        dogClaim.updateExpiry(50);
+
+        vm.prank(admin);
+        vm.expectRevert();
+        dogClaim.updateExpiry(0);
+
+        vm.prank(admin);
+        dogClaim.updateExpiry(15);
     }
 
     function test_invalidateClaim() public {
