@@ -29,9 +29,10 @@ contract DoGClaim is AccessControlUpgradeable {
     mapping(bytes32 key => bool) private _claims;
     mapping(address user => uint256) private _nonces;
     uint256 private _balance;
-    uint256 private feeRate;
+    uint256 private _feeRate;
+    uint256 private _expiry;
 
-    function initialize(address _token, address _signer, address _feeWallet, address _admin) external initializer {
+    function initialize(address _token, address _signer, address _feeWallet, address _admin, uint256 _fee, uint256 _expiryTime) external initializer {
         AccessControlUpgradeable.__AccessControl_init();
 
         if (_token == address(0)) {
@@ -55,7 +56,12 @@ contract DoGClaim is AccessControlUpgradeable {
         feeWallet = _feeWallet;
         _grantRole(ADMIN_ROLE, _admin);
 
-        feeRate = 20;
+        if (_fee > 100) {
+            revert InvalidAmount(_fee);
+        }
+        _feeRate = _fee;
+
+        _expiry = _expiryTime;
     }
 
     function withdraw() public onlyRole(ADMIN_ROLE) {
@@ -102,7 +108,7 @@ contract DoGClaim is AccessControlUpgradeable {
         if (newFeeRate > 100) {
             revert InvalidAmount(newFeeRate);
         }
-        feeRate = newFeeRate;
+        _feeRate = newFeeRate;
     }
 
     function getClaimHash(address user, uint256 amount, uint256 timestamp, uint256 nonce) private view returns (bytes32) {
@@ -131,7 +137,7 @@ contract DoGClaim is AccessControlUpgradeable {
         }
 
         uint256 providedTimestampInSeconds = timestamp / 1000;
-        if (block.timestamp - providedTimestampInSeconds > 15 minutes) {
+        if (block.timestamp - providedTimestampInSeconds > _expiry * 1 minutes) {
             revert InvalidTimestamp(timestamp);
         }
 
@@ -152,7 +158,7 @@ contract DoGClaim is AccessControlUpgradeable {
         _balance -= amount;
         _nonces[_msgSender()] += 1;
 
-        uint256 feeAmount = amount * feeRate / 100;
+        uint256 feeAmount = amount * _feeRate / 100;
         uint256 withdrawAmount = amount - feeAmount;
 
         bool success = IERC20(token).transfer(_msgSender(), withdrawAmount);

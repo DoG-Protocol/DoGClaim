@@ -28,18 +28,21 @@ contract DoGClaimTest is Test {
         amount = 10000000;
 
         vm.expectRevert();
-        dogClaim.initialize(address(0), signerWallet, feeWallet, admin);
+        dogClaim.initialize(address(0), signerWallet, feeWallet, admin, 20, 15);
 
         vm.expectRevert();
-        dogClaim.initialize(token, address(0), feeWallet, admin);
+        dogClaim.initialize(token, address(0), feeWallet, admin, 20, 15);
 
         vm.expectRevert();
-        dogClaim.initialize(token, signerWallet, address(0), admin);
+        dogClaim.initialize(token, signerWallet, address(0), admin, 20, 15);
 
         vm.expectRevert();
-        dogClaim.initialize(token, signerWallet, feeWallet, address(0));
+        dogClaim.initialize(token, signerWallet, feeWallet, address(0), 20, 15);
 
-        dogClaim.initialize(token, signerWallet, feeWallet, admin);
+        vm.expectRevert();
+        dogClaim.initialize(token, signerWallet, feeWallet, admin, 101, 15);
+
+        dogClaim.initialize(token, signerWallet, feeWallet, admin, 20, 15);
     }
 
     function claim(address sender, uint256 mintAmount, uint256 nonce) public {
