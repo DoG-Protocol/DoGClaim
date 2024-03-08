@@ -303,6 +303,7 @@ contract DoGClaimTest is Test {
 
     function testFuzzLoad(address sender, uint256 _number) public {
         vm.assume(sender != address(0));
+        vm.assume(sender != admin);
         vm.assume(_number > 0);
 
         vm.prank(sender);
