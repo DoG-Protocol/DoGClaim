@@ -2,7 +2,7 @@
   "scripts": {
     "lint": "solhint contracts/**/*.sol",
     "build": "forge build",
-    "test": "forge build && forge test",
+    "test": "forge build && forge test -vvv",
     "coverage": "forge coverage --report summary --report lcov",
     "full": "bun lint && bun run test && bun coverage",
     "publish": "thirdweb publish"

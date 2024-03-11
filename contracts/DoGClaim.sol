@@ -12,7 +12,7 @@ error InvalidAddress(address addr);
 error InvalidAmount(uint256 amount);
 error InvalidTimestamp(uint256 timestamp);
 error AlreadyClaimed(uint256 amount, uint256 timestamp);
-error InvalidSignature(address signer, uint256 amount, uint256 timestamp);
+error InvalidSignature(string message, address recovered, address signer);
 error TransferFailed(address sender, address recipient, uint256 amount);
 
 contract DoGClaim is AccessControlUpgradeable {
@@ -121,7 +121,7 @@ contract DoGClaim is AccessControlUpgradeable {
         _expiry = newExpiry;
     }
 
-    function getClaimHash(address user, uint256 amount, uint256 timestamp, uint256 nonce) private view returns (bytes32) {
+    function getClaimMessage(address user, uint256 amount, uint256 timestamp, uint256 nonce) private view returns (string memory) {
         string memory message = string.concat(
             Strings.toString(nonce),
             ":",
@@ -135,7 +135,7 @@ contract DoGClaim is AccessControlUpgradeable {
             ":",
             Strings.toString(timestamp)
         );
-        return keccak256(abi.encodePacked(message));
+        return message;
     }
 
     function claim(uint256 amount, uint256 timestamp, bytes memory signature) public {
@@ -152,7 +152,8 @@ contract DoGClaim is AccessControlUpgradeable {
         }
 
         uint256 nonce = _nonces[_msgSender()];
-        bytes32 messageHash = getClaimHash(_msgSender(), amount, timestamp, nonce);
+        string memory message = getClaimMessage(_msgSender(), amount, timestamp, nonce);
+        bytes32 messageHash = keccak256(abi.encodePacked(message));
 
         if (_claims[messageHash]) {
             revert AlreadyClaimed(amount, timestamp);
@@ -161,7 +162,7 @@ contract DoGClaim is AccessControlUpgradeable {
         bytes32 signedMessageHash = messageHash.toEthSignedMessageHash();
 
         if (signedMessageHash.recover(signature) != signer) {
-            revert InvalidSignature(signer, amount, timestamp);
+            revert InvalidSignature(message, signedMessageHash.recover(signature), signer);
         }
 
         _claims[messageHash] = true;
@@ -187,12 +188,14 @@ contract DoGClaim is AccessControlUpgradeable {
     }
 
     function checkClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) public view returns (bool) {
-        bytes32 messageHash = getClaimHash(user, amount, timestamp, nonce);
+        string memory message = getClaimMessage(user, amount, timestamp, nonce);
+        bytes32 messageHash = keccak256(abi.encodePacked(message));
         return _claims[messageHash];
     }
 
     function invalidateClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) public onlyRole(ADMIN_ROLE) {
-        bytes32 messageHash = getClaimHash(user, amount, timestamp, nonce);
+        string memory message = getClaimMessage(user, amount, timestamp, nonce);
+        bytes32 messageHash = keccak256(abi.encodePacked(message));
         _claims[messageHash] = true;
     }
 
