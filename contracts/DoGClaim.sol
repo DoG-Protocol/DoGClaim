@@ -51,19 +51,19 @@ contract DoGClaim is AccessControlUpgradeable {
             revert InvalidAddress(_admin);
         }
 
-        token = _token;
-        signer = _signer;
-        feeWallet = _feeWallet;
-        _grantRole(ADMIN_ROLE, _admin);
-
         if (_fee > 100) {
             revert InvalidAmount(_fee);
         }
-        _feeRate = _fee;
 
         if (_expiryTime == 0) {
             revert InvalidAmount(_expiryTime);
         }
+
+        token = _token;
+        signer = _signer;
+        feeWallet = _feeWallet;
+        _grantRole(ADMIN_ROLE, _admin);
+        _feeRate = _fee;
         _expiry = _expiryTime;
     }
 
@@ -85,11 +85,11 @@ contract DoGClaim is AccessControlUpgradeable {
             revert InvalidAmount(amount);
         }
 
+        _balance += amount;
         bool success = IERC20(token).transferFrom(_msgSender(), address(this), amount);
         if (!success) {
             revert TransferFailed(_msgSender(), address(this), amount);
         }
-        _balance += amount;
         emit BalanceLoaded(_msgSender(), amount, _balance);
     }
 
