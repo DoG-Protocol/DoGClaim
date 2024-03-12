@@ -6,6 +6,7 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { MessageHashUtils } from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 error InsufficientBalance(uint256 requested, uint256 available);
 error InvalidAddress(address addr);
@@ -13,11 +14,11 @@ error InvalidAmount(uint256 amount);
 error InvalidTimestamp(uint256 timestamp);
 error AlreadyClaimed(uint256 amount, uint256 timestamp);
 error InvalidSignature(string message, address recovered, address signer);
-error TransferFailed(address sender, address recipient, uint256 amount);
 
 contract DoGClaim is AccessControlUpgradeable {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
+    using SafeERC20 for IERC20;
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     event ClaimSucceeded(address to, uint256 amount, uint256 timestamp);
@@ -74,10 +75,7 @@ contract DoGClaim is AccessControlUpgradeable {
         uint256 _oldBalance = _balance;
         _balance = 0;
 
-        bool success = IERC20(token).transfer(_msgSender(), _oldBalance);
-        if (!success) {
-            revert TransferFailed(address(this), _msgSender(), _oldBalance);
-        }
+        IERC20(token).safeTransfer(_msgSender(), _oldBalance);
     }
 
     function load(uint256 amount) external onlyRole(ADMIN_ROLE) {
@@ -86,10 +84,7 @@ contract DoGClaim is AccessControlUpgradeable {
         }
 
         _balance += amount;
-        bool success = IERC20(token).transferFrom(_msgSender(), address(this), amount);
-        if (!success) {
-            revert TransferFailed(_msgSender(), address(this), amount);
-        }
+        IERC20(token).safeTransferFrom(_msgSender(), address(this), amount);
         emit BalanceLoaded(_msgSender(), amount, _balance);
     }
 
@@ -172,16 +167,10 @@ contract DoGClaim is AccessControlUpgradeable {
         uint256 feeAmount = amount * _feeRate / 100;
         uint256 withdrawAmount = amount - feeAmount;
 
-        bool success = IERC20(token).transfer(_msgSender(), withdrawAmount);
-        if (!success) {
-            revert TransferFailed(address(this), _msgSender(), withdrawAmount);
-        }
+        IERC20(token).safeTransfer(_msgSender(), withdrawAmount);
 
         if (feeAmount > 0) {
-            success = IERC20(token).transfer(feeWallet, feeAmount);
-            if (!success) {
-                revert TransferFailed(address(this), feeWallet, feeAmount);
-            }
+            IERC20(token).safeTransfer(feeWallet, feeAmount);
         }
 
         emit ClaimSucceeded(_msgSender(), amount, timestamp);
