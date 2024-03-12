@@ -67,7 +67,7 @@ contract DoGClaim is AccessControlUpgradeable {
         _expiry = _expiryTime;
     }
 
-    function withdraw() public onlyRole(ADMIN_ROLE) {
+    function withdraw() external onlyRole(ADMIN_ROLE) {
         if (_balance == 0) {
             revert InsufficientBalance(_balance, 0);
         }
@@ -80,7 +80,7 @@ contract DoGClaim is AccessControlUpgradeable {
         }
     }
 
-    function load(uint256 amount) public onlyRole(ADMIN_ROLE) {
+    function load(uint256 amount) external onlyRole(ADMIN_ROLE) {
         if (amount == 0) {
             revert InvalidAmount(amount);
         }
@@ -93,28 +93,28 @@ contract DoGClaim is AccessControlUpgradeable {
         emit BalanceLoaded(_msgSender(), amount, _balance);
     }
 
-    function updateSignerWallet(address newSignerWallet) public onlyRole(ADMIN_ROLE) {
+    function updateSignerWallet(address newSignerWallet) external onlyRole(ADMIN_ROLE) {
         if (newSignerWallet == address(0)) {
             revert InvalidAddress(newSignerWallet);
         }
         signer = newSignerWallet;
     }
 
-    function updateFeeWallet(address newFeeWallet) public onlyRole(ADMIN_ROLE) {
+    function updateFeeWallet(address newFeeWallet) external onlyRole(ADMIN_ROLE) {
         if (newFeeWallet == address(0)) {
             revert InvalidAddress(newFeeWallet);
         }
         feeWallet = newFeeWallet;
     }
 
-    function updateFeeRate(uint256 newFeeRate) public onlyRole(ADMIN_ROLE) {
+    function updateFeeRate(uint256 newFeeRate) external onlyRole(ADMIN_ROLE) {
         if (newFeeRate > 100) {
             revert InvalidAmount(newFeeRate);
         }
         _feeRate = newFeeRate;
     }
 
-    function updateExpiry(uint256 newExpiry) public onlyRole(ADMIN_ROLE) {
+    function updateExpiry(uint256 newExpiry) external onlyRole(ADMIN_ROLE) {
         if (newExpiry == 0) {
             revert InvalidAmount(newExpiry);
         }
@@ -138,7 +138,7 @@ contract DoGClaim is AccessControlUpgradeable {
         return message;
     }
 
-    function claim(uint256 amount, uint256 timestamp, bytes memory signature) public {
+    function claim(uint256 amount, uint256 timestamp, bytes memory signature) external {
         if (amount > _balance) {
             revert InsufficientBalance(amount, _balance);
         }
@@ -187,23 +187,23 @@ contract DoGClaim is AccessControlUpgradeable {
         emit ClaimSucceeded(_msgSender(), amount, timestamp);
     }
 
-    function checkClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) public view returns (bool) {
+    function checkClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) external view returns (bool) {
         string memory message = getClaimMessage(user, amount, timestamp, nonce);
         bytes32 messageHash = keccak256(abi.encodePacked(message));
         return _claims[messageHash];
     }
 
-    function invalidateClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) public onlyRole(ADMIN_ROLE) {
+    function invalidateClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) external onlyRole(ADMIN_ROLE) {
         string memory message = getClaimMessage(user, amount, timestamp, nonce);
         bytes32 messageHash = keccak256(abi.encodePacked(message));
         _claims[messageHash] = true;
     }
 
-    function getBalance() public view returns (uint256) {
+    function getBalance() external view returns (uint256) {
         return _balance;
     }
 
-    function getNonce(address user) public view returns (uint256) {
+    function getNonce(address user) external view returns (uint256) {
         return _nonces[user];
     }
 }
