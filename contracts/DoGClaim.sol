@@ -27,7 +27,7 @@ contract DoGClaim is AccessControlUpgradeable {
     address public signer;
     address public feeWallet;
     address public token;
-    mapping(bytes32 key => bool) private _claims;
+    mapping(bytes32 key => uint256) private _claims;
     mapping(address user => uint256) private _nonces;
     uint256 private _balance;
     uint256 private _feeRate;
@@ -69,10 +69,10 @@ contract DoGClaim is AccessControlUpgradeable {
     }
 
     function withdraw() external onlyRole(ADMIN_ROLE) {
-        if (_balance == 0) {
-            revert InsufficientBalance(_balance, 0);
-        }
         uint256 _oldBalance = _balance;
+        if (_oldBalance == 0) {
+            revert InsufficientBalance(_oldBalance, 0);
+        }
         _balance = 0;
 
         IERC20(token).safeTransfer(_msgSender(), _oldBalance);
@@ -83,34 +83,34 @@ contract DoGClaim is AccessControlUpgradeable {
             revert InvalidAmount(amount);
         }
 
-        _balance += amount;
+        _balance = _balance + amount;
         IERC20(token).safeTransferFrom(_msgSender(), address(this), amount);
         emit BalanceLoaded(_msgSender(), amount, _balance);
     }
 
     function updateSignerWallet(address newSignerWallet) external onlyRole(ADMIN_ROLE) {
-        if (newSignerWallet == address(0)) {
+        if (newSignerWallet == address(0) || newSignerWallet == signer) {
             revert InvalidAddress(newSignerWallet);
         }
         signer = newSignerWallet;
     }
 
     function updateFeeWallet(address newFeeWallet) external onlyRole(ADMIN_ROLE) {
-        if (newFeeWallet == address(0)) {
+        if (newFeeWallet == address(0) || newFeeWallet == feeWallet) {
             revert InvalidAddress(newFeeWallet);
         }
         feeWallet = newFeeWallet;
     }
 
     function updateFeeRate(uint256 newFeeRate) external onlyRole(ADMIN_ROLE) {
-        if (newFeeRate > 100) {
+        if (newFeeRate > 100 || newFeeRate == _feeRate) {
             revert InvalidAmount(newFeeRate);
         }
         _feeRate = newFeeRate;
     }
 
     function updateExpiry(uint256 newExpiry) external onlyRole(ADMIN_ROLE) {
-        if (newExpiry == 0) {
+        if (newExpiry == 0 || newExpiry == _expiry) {
             revert InvalidAmount(newExpiry);
         }
         _expiry = newExpiry;
@@ -150,26 +150,28 @@ contract DoGClaim is AccessControlUpgradeable {
         string memory message = getClaimMessage(_msgSender(), amount, timestamp, nonce);
         bytes32 messageHash = keccak256(abi.encodePacked(message));
 
-        if (_claims[messageHash]) {
+        if (_claims[messageHash] == 1) {
             revert AlreadyClaimed(amount, timestamp);
         }
 
         bytes32 signedMessageHash = messageHash.toEthSignedMessageHash();
 
-        if (signedMessageHash.recover(signature) != signer) {
-            revert InvalidSignature(message, signedMessageHash.recover(signature), signer);
+        address recovered = signedMessageHash.recover(signature);
+
+        if (recovered != signer) {
+            revert InvalidSignature(message, recovered, signer);
         }
 
-        _claims[messageHash] = true;
-        _balance -= amount;
-        _nonces[_msgSender()] += 1;
+        _claims[messageHash] = 1;
+        _balance = _balance - amount;
+        _nonces[_msgSender()] = _nonces[_msgSender()] + 1;
 
         uint256 feeAmount = amount * _feeRate / 100;
         uint256 withdrawAmount = amount - feeAmount;
 
         IERC20(token).safeTransfer(_msgSender(), withdrawAmount);
 
-        if (feeAmount > 0) {
+        if (feeAmount != 0) {
             IERC20(token).safeTransfer(feeWallet, feeAmount);
         }
 
@@ -179,13 +181,13 @@ contract DoGClaim is AccessControlUpgradeable {
     function checkClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) external view returns (bool) {
         string memory message = getClaimMessage(user, amount, timestamp, nonce);
         bytes32 messageHash = keccak256(abi.encodePacked(message));
-        return _claims[messageHash];
+        return _claims[messageHash] == 1;
     }
 
     function invalidateClaim(address user, uint256 amount, uint256 timestamp, uint256 nonce) external onlyRole(ADMIN_ROLE) {
         string memory message = getClaimMessage(user, amount, timestamp, nonce);
         bytes32 messageHash = keccak256(abi.encodePacked(message));
-        _claims[messageHash] = true;
+        _claims[messageHash] = 1;
     }
 
     function getBalance() external view returns (uint256) {

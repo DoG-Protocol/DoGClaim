@@ -473,7 +473,7 @@ contract DoGClaimTest is Test {
         dogClaim.updateExpiry(0);
 
         vm.prank(admin);
-        dogClaim.updateExpiry(15);
+        dogClaim.updateExpiry(30);
     }
 
     function test_invalidateClaim() public {

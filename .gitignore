@@ -3,3 +3,4 @@ out/
 cache/
 lcov.info
 .idea/
+.DS_Store
